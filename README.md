@@ -23,20 +23,20 @@
 
 ## 📁 Структура проекта
 
-*crypto_terminal_service/
-*├── .env # Переменные окружения (локально, не для Git)
-*├── .gitignore # Файлы, исключаемые из Git
-*├── Dockerfile # Инструкции для сборки Docker-образа
-*├── requirements.txt # Зависимости Python
-*├── src/
-*│ ├── init.py
-*│ ├── auth.py # Логика аутентификации и регистрации
-*│ ├── main.py # Основной файл приложения FastAPI
-*│ └── database/
-*│ ├── init.py
-*│ ├── database.py # Настройка подключения к БД
-*│ └── models.py # Модель SQLAlchemy для таблицы users
-*└── README.md 
+*   crypto_terminal_service/
+*   ├── .env # Переменные окружения (локально, не для Git)
+*   ├── .gitignore # Файлы, исключаемые из Git
+*   ├── Dockerfile # Инструкции для сборки Docker-образа
+*   ├── requirements.txt # Зависимости Python
+*   ├── src/
+*   │ ├── init.py
+*   │ ├── auth.py # Логика аутентификации и регистрации
+*   │ ├── main.py # Основной файл приложения FastAPI
+*   │ └── database/
+*   │ ├── init.py
+*   │ ├── database.py # Настройка подключения к БД
+*   │ └── models.py # Модель SQLAlchemy для таблицы users
+*   └── README.md 
 
 ### Предварительные требования
 
