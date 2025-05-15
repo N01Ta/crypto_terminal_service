@@ -1,10 +1,10 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, Form  # Form для явного приема form-data
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
-from typing import Annotated  # Для FastAPI >= 0.95.0
+from typing import Annotated
 
 from database.database import get_db
 from database.models import User
@@ -37,7 +37,7 @@ async def get_user_by_login(db: AsyncSession, login: str) -> User | None:
 async def create_db_user(db: AsyncSession, user_data: UserCreateSchema) -> User:
     db_user = User(
         login=user_data.login,
-        password=user_data.password,  # Пароль хранится как есть
+        password=user_data.password,
         secret_key=user_data.secret_key
     )
     db.add(db_user)
