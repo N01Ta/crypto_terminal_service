@@ -15,15 +15,13 @@ router = APIRouter(
 )
 
 
-# --- Pydantic модели ---
-
 class UserCreateSchema(BaseModel):
     login: str = Field(..., min_length=3, max_length=50, description="Уникальный логин пользователя")
     password: str = Field(..., min_length=6, description="Пароль пользователя (минимум 6 символов)")
     secret_key: str = Field(..., min_length=10, description="Секретный ключ пользователя (минимум 10 символов)")
 
 
-class UserInfoSchema(BaseModel):  # Используется и для ответа при регистрации, и при логине
+class UserInfoSchema(BaseModel):
     login: str
     secret_key: str
 
@@ -31,7 +29,6 @@ class UserInfoSchema(BaseModel):  # Используется и для отве�
         from_attributes = True
 
 
-# --- Функции для работы с БД ---
 async def get_user_by_login(db: AsyncSession, login: str) -> User | None:
     result = await db.execute(select(User).filter(User.login == login))
     return result.scalar_one_or_none()
@@ -61,8 +58,6 @@ async def create_db_user(db: AsyncSession, user_data: UserCreateSchema) -> User:
         )
     return db_user
 
-
-# --- Эндпоинты ---
 
 @router.post("/register", response_model=UserInfoSchema, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreateSchema, db: AsyncSession = Depends(get_db)):
@@ -94,8 +89,6 @@ async def register_user(user_data: UserCreateSchema, db: AsyncSession = Depends(
 
 @router.post("/login", response_model=UserInfoSchema)  # Раньше был /token
 async def login_user(
-        # Теперь явно принимаем form-data без OAuth2PasswordRequestForm,
-        # так как он предназначен для получения токенов, а мы их не используем.
         login: Annotated[str, Form()],
         password: Annotated[str, Form()],
         db: AsyncSession = Depends(get_db)
