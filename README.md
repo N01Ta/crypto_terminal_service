@@ -32,8 +32,8 @@
 *   │  ├── auth.py # Логика аутентификации и регистрации
 *   │  ├── main.py # Основной файл приложения FastAPI
 *   │  └── database/
-*   │     ├── database.py # Настройка подключения к БД
-*   │     └── models.py # Модель SQLAlchemy для таблицы users
+*   │    ├── database.py # Настройка подключения к БД
+*   │    └── models.py # Модель SQLAlchemy для таблицы users
 *   └── README.md 
 
 ## Предварительные требования
