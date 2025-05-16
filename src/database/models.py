@@ -9,8 +9,8 @@ class User(Base):
 
     login = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False)
-    secret_key = Column(String, nullable=False, unique=True,
-                        index=True)
+    mexc_api_key = Column(String, nullable=False, index=True)
+    mexc_api_secret = Column(String, nullable=False)
 
     def __repr__(self):
         return f"<User(id={self.id}, login='{self.login}')>"

@@ -14,19 +14,24 @@ router = APIRouter(
     tags=["Authentication"]
 )
 
-
 class UserCreateSchema(BaseModel):
-    login: str = Field(..., min_length=3, max_length=50, description="Уникальный логин пользователя")
-    password: str = Field(..., min_length=6, description="Пароль пользователя (минимум 6 символов)")
-    secret_key: str = Field(..., min_length=10, description="Секретный ключ пользователя (минимум 10 символов)")
+    login: str = Field(..., min_length=3, max_length=50, description="Придумайте логин для терминала")
+    password: str = Field(..., min_length=6, description="Придумайте пароль для терминала (минимум 6 символов)")
+    mexc_api_key: str = Field(..., description="Ваш API Key от биржи MEXC")
+    mexc_api_secret: str = Field(..., description="Ваш API Secret от биржи MEXC")
 
 
-class UserInfoSchema(BaseModel):
-    login: str
-    secret_key: str
+class UserApiKeysSchema(BaseModel):
+    mexc_api_key: str
+    mexc_api_secret: str
 
     class Config:
         from_attributes = True
+
+
+class LoginResponseSchema(BaseModel):
+    login: str
+    api_keys: UserApiKeysSchema
 
 
 async def get_user_by_login(db: AsyncSession, login: str) -> User | None:
@@ -37,73 +42,90 @@ async def get_user_by_login(db: AsyncSession, login: str) -> User | None:
 async def create_db_user(db: AsyncSession, user_data: UserCreateSchema) -> User:
     db_user = User(
         login=user_data.login,
-        password=user_data.password,
-        secret_key=user_data.secret_key
+        password=user_data.password,  # Пароль для нашего сервиса
+        mexc_api_key=user_data.mexc_api_key,
+        mexc_api_secret=user_data.mexc_api_secret  # API биржи
     )
     db.add(db_user)
     try:
         await db.commit()
         await db.refresh(db_user)
-    except IntegrityError:
+    except IntegrityError:  # Обработка случая, если логин для нашего сервиса уже существует
         await db.rollback()
-        existing_user_by_login = await get_user_by_login(db, user_data.login)
-        if existing_user_by_login:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Login already registered."
-            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Secret key already in use or another integrity constraint violated."
+            detail="Login for the service already registered."
         )
     return db_user
 
 
-@router.post("/register", response_model=UserInfoSchema, status_code=status.HTTP_201_CREATED)
+# --- Эндпоинты ---
+
+@router.post("/register", response_model=LoginResponseSchema,
+             status_code=status.HTTP_201_CREATED)  # Возвращаем сразу как при логине
 async def register_user(user_data: UserCreateSchema, db: AsyncSession = Depends(get_db)):
     """
-    Регистрация нового пользователя.
-    - **login**: уникальный логин пользователя.
-    - **password**: пароль.
-    - **secret_key**: персональный секретный ключ.
-    Возвращает информацию о созданном пользователе.
+    Регистрация нового пользователя в терминале и привязка его MEXC API ключей.
+    - login логин для доступа к терминалу.
+    - password пароль для доступа к терминалу.
+    - mexc_api_key API Key от биржи MEXC.
+    - mexc_api_secret API Secret от биржи MEXC.
+    Возвращает логин пользователя и его API ключи для немедленного использования.
     """
     existing_user = await get_user_by_login(db, login=user_data.login)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Login already registered."
+            detail="This login is already taken for the terminal."
         )
 
-    result = await db.execute(select(User).filter(User.secret_key == user_data.secret_key))
-    existing_secret_key = result.scalar_one_or_none()
-    if existing_secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This secret key is already in use."
-        )
+    # Тут можно добавить проверку на уникальность пары mexc_api_key, если это важно,
+    # но обычно один API ключ может использоваться только одним пользователем системы.
+    # Однако, если разные пользователи системы могут случайно ввести один и тот же API ключ,
+    # это может быть проблемой. Пока для простоты опустим.
 
     created_user = await create_db_user(db, user_data)
-    return UserInfoSchema(login=created_user.login, secret_key=created_user.secret_key)
+
+    return LoginResponseSchema(
+        login=created_user.login,
+        api_keys=UserApiKeysSchema(
+            mexc_api_key=created_user.mexc_api_key,
+            mexc_api_secret=created_user.mexc_api_secret
+        )
+    )
 
 
-@router.post("/login", response_model=UserInfoSchema)  # Раньше был /token
+@router.post("/login", response_model=LoginResponseSchema)
 async def login_user(
-        login: Annotated[str, Form()],
-        password: Annotated[str, Form()],
+        login: Annotated[str, Form()],  # Логин для нашего сервиса
+        password: Annotated[str, Form()],  # Пароль для нашего сервиса
         db: AsyncSession = Depends(get_db)
 ):
     """
-    Аутентификация пользователя.
-    Принимает `login` и `password` в виде form-data.
-    Возвращает информацию о пользователе (`login`, `secret_key`) в случае успеха.
+    Аутентификация пользователя в терминале.
+    Принимает `login` и `password` (для терминала) в виде form-data.
+    Возвращает логин пользователя и его привязанные MEXC API ключи.
     """
     user = await get_user_by_login(db, login=login)
-    if not user or not (user.password == password):  # Прямое сравнение паролей
+
+    # Проверяем, что пользователь существует и пароль для нашего сервиса совпадает
+    if not user or not (user.password == password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect login or password",
-            # headers={"WWW-Authenticate": "Bearer"} # Заголовок Bearer не нужен без JWT
+            detail="Incorrect terminal login or password",
         )
 
-    return UserInfoSchema(login=user.login, secret_key=user.secret_key)
+    # Проверяем, что у пользователя есть привязанные ключи
+    if not user.mexc_api_key or not user.mexc_api_secret:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="MEXC API keys not found for this user. Please register them or contact support.",
+        )
+
+    return LoginResponseSchema(
+        login=user.login,
+        api_keys=UserApiKeysSchema(
+            mexc_api_key=user.mexc_api_key,
+            mexc_api_secret=user.mexc_api_secret
+        )
+    )
